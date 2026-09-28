@@ -1,0 +1,33 @@
+name: Validate and package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  extension:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run package:extension
+      - uses: actions/upload-artifact@v7
+        with:
+          name: smtx-demo-builder-extension
+          path: |
+            output/releases/*.zip
+            output/releases/SHA256SUMS.txt
+          if-no-files-found: error
