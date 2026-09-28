@@ -22,12 +22,11 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
-      - run: npm run build
       - run: npm run package:extension
       - uses: actions/upload-artifact@v7
         with:
           name: smtx-demo-builder-extension
           path: |
             output/releases/*.zip
-            output/releases/SHA256SUMS.txt
+            output/releases/*.sha256
           if-no-files-found: error

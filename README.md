@@ -10,7 +10,6 @@ SMTX Demo Builder 是适用于 Windows 平台 Chrome/Edge 的 Manifest V3 扩展
 npm install
 npm run typecheck
 npm test
-npm run build
 npm run package:extension
 npm run smoke
 ```
@@ -19,9 +18,9 @@ npm run smoke
 
 ## 内测包安装与更新
 
-`npm run package:extension` 在 `output/releases/` 生成 `SMTX-Demo-Builder-v<版本号>.zip` 和 `SHA256SUMS.txt`。版本号必须同时与 `package.json`、`manifest.json` 一致。ZIP 解压后的根目录直接包含 `manifest.json`，可作为“加载已解压的扩展程序”的目标；不要使用 GitHub 自动生成的源码 ZIP。仓库的 GitHub Actions 会在推送到 `main`、提交 PR 或手动触发时执行类型检查、测试、构建和打包，并提供同样的构建产物。内测同事可从有权限访问的私有仓库下载发布包，或通过公司内部渠道获取 ZIP；不要把演示素材库一起分发。
+`npm run package:extension` 会先执行干净构建，再在 `output/releases/` 生成 `SMTX-Demo-Builder-v<版本号>.zip` 和同名 `.sha256` 校验文件。版本号必须同时与 `package.json`、`manifest.json` 一致。ZIP 解压后的根目录直接包含 `manifest.json`，可作为“加载已解压的扩展程序”的目标；不要使用 GitHub 自动生成的源码 ZIP。仓库的 GitHub Actions 会在推送到 `main`、提交 PR 或手动触发时执行类型检查、测试、构建和打包。内测同事应从成功的 `main` 分支运行或经确认的手动运行下载产物，也可以通过公司内部渠道获取 ZIP；不要把演示素材库一起分发。
 
-首次安装：将 ZIP 解压到固定的本地目录，在 `edge://extensions` 或 `chrome://extensions` 启用开发者模式，选择“加载已解压的扩展程序”，选中包含 `manifest.json` 的目录。安装后在工具中选择自己的本地演示素材库。可用 `Get-FileHash .\SMTX-Demo-Builder-v0.1.0.zip -Algorithm SHA256` 核对 `SHA256SUMS.txt` 中的值。
+首次安装：将 ZIP 解压到固定的本地目录，在 `edge://extensions` 或 `chrome://extensions` 启用开发者模式，选择“加载已解压的扩展程序”，选中包含 `manifest.json` 的目录。安装后在工具中选择自己的本地演示素材库。可用 `Get-FileHash .\SMTX-Demo-Builder-v0.1.0.zip -Algorithm SHA256` 核对同版本 `.sha256` 文件中的值。
 
 更新：先结束正在进行的录制，备份旧版扩展目录，在原扩展目录替换为新版解压文件，然后在扩展管理页点击“重新加载”，并重新打开工具。回退：将备份的旧版文件恢复到同一扩展目录，再点击“重新加载”。扩展文件与演示素材库是两个独立目录；更新或回退扩展文件不会删除素材。若改为从另一目录重新安装，可能需要在工具中重新选择原素材库。回退前仍应备份素材库，因为旧版不一定支持新版创建的演示格式。
 
