@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "SMTX Demo Builder",
+  "description": "录制网页操作、配置交互热点并回放演示。演示数据仅存储于本地。",
+  "version": "0.1.0",
+  "minimum_chrome_version": "116",
+  "action": { "default_title": "打开 SMTX Demo Builder" },
+  "side_panel": { "default_path": "index.html" },
+  "background": { "service_worker": "sw.js", "type": "module" },
+  "permissions": ["sidePanel", "scripting", "activeTab", "storage", "tabs"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"]
+}

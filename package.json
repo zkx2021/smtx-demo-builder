@@ -1,0 +1,30 @@
+{
+  "name": "local-guided-demo-recorder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "fixture": "vite --host 127.0.0.1 --port 4173",
+    "smoke": "node scripts/permission-smoke.mjs && node scripts/smoke.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@rrweb/record": "^2.1.6",
+    "@rrweb/replay": "^2.1.6",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.326",
+    "@types/node": "^26.6.2",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@types/wicg-file-system-access": "^2023.10.7",
+    "esbuild": "^0.25.9",
+    "playwright-core": "^1.63.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.4"
+  }
+}

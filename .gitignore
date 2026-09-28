@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.npm-cache/
+.superpowers/
+output/
+demos/
+.env
+.env.*
+!.env.example
+*.pem
+*.crx

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>虚拟机演示测试页</title>
+  <link rel="stylesheet" href="http://localhost:__FIXTURE_PORT__/external.css" />
+  <style>
+    @font-face { font-family: FixtureIcons; src: url('/assets/icons.ttf') format('truetype'); }
+    .asset-fixture { background-image: url('/assets/background.png'); background-repeat: no-repeat; }
+    .fixture-icon { font-family: FixtureIcons; }
+    body { margin: 0; font: 15px/1.5 "Segoe UI", sans-serif; color: #1c2c43; background: #f3f6fb; }
+    header { padding: 18px 30px; color: #fff; background: #183b79; font-weight: 700; }
+    main { max-width: 1000px; margin: 30px auto; padding: 24px; background: #fff; border-radius: 12px; }
+    .row { display: flex; justify-content: space-between; align-items: center; }
+    button { border: 0; border-radius: 7px; padding: 11px 16px; background: #2854c5; color: #fff; cursor: pointer; }
+    label { display: block; margin: 18px 0; }
+    input, select { display: block; padding: 9px; margin-top: 6px; width: 100%; max-width: 360px; border: 1px solid #cbd6e4; border-radius: 6px; }
+    .hidden { display: none; }
+    .ok { padding: 14px; border-radius: 8px; background: #e7f7ed; color: #146a3c; }
+  </style>
+</head>
+<body>
+  <header>HCI Cloud · 测试页面</header>
+  <main>
+    <div class="row"><h1>虚拟机</h1><button id="create">新建虚拟机</button></div>
+    <p class="asset-fixture">这里模拟一条“创建虚拟机”的操作流程，用于首次试录。<span class="fixture-icon">&#xea60;</span></p>
+    <div aria-label="离线资源测试">
+      <img src="/assets/pixel.png" alt="栅格图片" width="16" height="16" />
+      <img src="/assets/duplicate.png" alt="相同图片" width="16" height="16" />
+      <img src="/assets/icon.svg" alt="SVG 图片" width="16" height="16" />
+      <img src="/assets/html.png?secret=hidden#private" alt="错误内容" width="16" height="16" />
+      <img src="/assets/large.png" alt="超限内容" width="16" height="16" />
+      <img src="/assets/missing.png" alt="不存在" width="16" height="16" />
+      <img src="http://localhost:__FIXTURE_PORT__/assets/cross.png?secret=hidden" alt="跨域图片" width="16" height="16" />
+    </div>
+    <section id="form" class="hidden">
+      <h2>新建虚拟机</h2>
+      <label>名称<input id="name" value="demo-vm" /></label>
+      <label>计算资源<select id="cpu"><option>2 vCPU / 4 GB</option><option>4 vCPU / 8 GB</option></select></label>
+      <button id="confirm">确认创建</button>
+    </section>
+    <p id="result" class="hidden ok"></p>
+  </main>
+  <script>
+    fetch('/api/not-an-asset.png').then(response => response.text());
+    document.querySelector('#create').onclick = () => document.querySelector('#form').classList.remove('hidden');
+    document.querySelector('#confirm').onclick = () => {
+      document.querySelector('#result').textContent = `${document.querySelector('#name').value} 创建成功`;
+      document.querySelector('#result').classList.remove('hidden');
+    };
+  </script>
+  <script src="/scripts/not-an-asset.png"></script>
+</body>
+</html>
