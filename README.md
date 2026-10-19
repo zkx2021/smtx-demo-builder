@@ -2,7 +2,7 @@
 
 SMTX Demo Builder 是适用于 Windows 平台 Chrome/Edge 的 Manifest V3 扩展。用户可录制网页操作、配置交互热点，并在独立标签页回放演示。录制数据仅写入用户指定的本地目录。
 
-一线售前试点请阅读 [内测试点指南](docs/pilot/README.md)；下文为项目构建与技术说明。
+实际操作请阅读 [使用指南](docs/user-guide/README.md)；首次安装和小范围试用请阅读 [内测试点指南](docs/pilot/README.md)。下文为项目构建与技术说明。
 
 ## 构建与安装
 
