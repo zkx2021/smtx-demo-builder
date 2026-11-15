@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client';
-import { useEffect, useMemo, useState } from 'react';
-import type { FormEvent, ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
 import { request, json } from './api';
@@ -17,6 +17,21 @@ const bytes = (value: number) => value >= 1048576 ? `${(value / 1048576).toFixed
 const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message : '操作失败，请重试。';
 const assetLabel = (status: DemoRecord['assetStatus']) => status === 'complete' ? '资源完整' : status === 'no-candidates' ? '无外部资源' : status === 'legacy' ? '旧版资源' : '资源不完整';
 const assetWarning = (status: DemoRecord['assetStatus']) => status === 'partial' || status === 'legacy';
+const libraryColumns = [
+  { label: '演示标题', initial: 220, min: 160 },
+  { label: '产品版本', initial: 105, min: 85 },
+  { label: '互动步骤', initial: 100, min: 90 },
+  { label: '资源状态', initial: 110, min: 95 },
+  { label: '上传日期', initial: 110, min: 95 },
+] as const;
+const libraryColumnStorageKey = 'democenter.library.columns.v1';
+function initialLibraryColumnWidths(): number[] {
+  try {
+    const saved = JSON.parse(localStorage.getItem(libraryColumnStorageKey) ?? 'null');
+    if (Array.isArray(saved) && saved.length === libraryColumns.length && saved.every((width, index) => Number.isInteger(width) && width >= libraryColumns[index].min && width <= 800)) return saved;
+  } catch { /* Use the default widths if storage is unavailable. */ }
+  return libraryColumns.map(column => column.initial);
+}
 
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const path: Record<string, ReactNode> = {
@@ -139,6 +154,31 @@ function Library({ go }: { go: (path: string) => void }) {
   const [query, setQuery] = useState(''), [filter, setFilter] = useState('all'), [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false), [loading, setLoading] = useState(true), [error, setError] = useState('');
   const [steps, setSteps] = useState<Playback['steps']>([]);
+  const [columnWidths, setColumnWidths] = useState(initialLibraryColumnWidths);
+  const columnDrag = useRef<{ index: number; startX: number; startWidth: number } | null>(null);
+  useEffect(() => { try { localStorage.setItem(libraryColumnStorageKey, JSON.stringify(columnWidths)); } catch { /* Resizing still works without storage. */ } }, [columnWidths]);
+  function resizeColumn(index: number, width: number) {
+    setColumnWidths(current => current.map((value, at) => at === index ? Math.max(libraryColumns[index].min, Math.min(800, Math.round(width))) : value));
+  }
+  function startColumnDrag(index: number, event: ReactPointerEvent<HTMLSpanElement>) {
+    event.preventDefault();
+    columnDrag.current = { index, startX: event.clientX, startWidth: columnWidths[index] };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+  function moveColumnDrag(event: ReactPointerEvent<HTMLSpanElement>) {
+    const drag = columnDrag.current;
+    if (drag) resizeColumn(drag.index, drag.startWidth + event.clientX - drag.startX);
+  }
+  function finishColumnDrag(event: ReactPointerEvent<HTMLSpanElement>) {
+    columnDrag.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+  function keyboardResize(index: number, event: ReactKeyboardEvent<HTMLSpanElement>) {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      resizeColumn(index, columnWidths[index] + (event.key === 'ArrowRight' ? 10 : -10));
+    }
+  }
   const selected = demos.find(item => item.id === selectedId) ?? null;
   const filtered = demos.filter(item => (selectedFolder === 'all' || (selectedFolder === 'uncategorized' ? !item.folderId : item.folderId === selectedFolder)) && (filter === 'all' || item.productVersion === filter || item.tags.includes(filter)) && `${item.title} ${item.tags.join(' ')}`.toLowerCase().includes(query.trim().toLowerCase()));
   const filters = useMemo(() => [...new Set(demos.flatMap(item => [item.productVersion, ...item.tags]).filter(Boolean))].sort(), [demos]);
@@ -154,7 +194,7 @@ function Library({ go }: { go: (path: string) => void }) {
   const uploadPath = `/demos/upload${selectedFolder !== 'all' && selectedFolder !== 'uncategorized' ? `?folder=${encodeURIComponent(selectedFolder)}` : ''}`;
   return <main className="page-shell"><h1 className="page-title">互动 Demo</h1><Banner message={error} clear={() => setError('')} /><div className="toolbar"><button className="primary-button" onClick={() => go(uploadPath)}><Icon name="plus" /> 上传演示</button><div className="search-field"><Icon name="search" /><input aria-label="搜索演示" placeholder="搜索演示标题或标签" value={query} onChange={e => setQuery(e.target.value)} /></div><select aria-label="按产品或标签筛选" value={filter} onChange={e => setFilter(e.target.value)}><option value="all">产品 / 标签：全部</option>{filters.map(value => <option key={value} value={value}>{value}</option>)}</select></div>
     <div className="library-layout"><aside className="panel folder-panel"><div className="folder-heading"><h2>文件夹</h2><button className="link-button" disabled={busy} onClick={createFolder}><Icon name="plus" size={16} /> 新建</button></div><p className="folder-help">按文件夹组织已上传的互动演示</p><div className="folder-list"><button className={selectedFolder === 'all' ? 'active' : ''} onClick={() => setSelectedFolder('all')}><Icon name="folder" /> 全部演示 <span>({demos.length})</span></button><button className={selectedFolder === 'uncategorized' ? 'active' : ''} onClick={() => setSelectedFolder('uncategorized')}><Icon name="folder" /> 未分类 <span>({demos.filter(item => !item.folderId).length})</span></button>{folders.map(folder => <div className={`folder-row ${selectedFolder === folder.id ? 'active' : ''}`} key={folder.id}><button className="folder-select" onClick={() => setSelectedFolder(folder.id)}><Icon name="folder" /> <span>{folder.name} ({demos.filter(item => item.folderId === folder.id).length})</span></button><button className="folder-more" title="重命名文件夹" aria-label={`重命名 ${folder.name}`} onClick={() => renameFolder(folder)}><Icon name="edit" size={15} /></button><button className="folder-more" title="删除文件夹" aria-label={`删除 ${folder.name}`} onClick={() => deleteFolder(folder)}><Icon name="trash" size={15} /></button></div>)}</div></aside>
-      <section className="panel table-panel"><div className="table-scroll"><table><thead><tr><th>演示标题</th><th>产品版本</th><th>互动步骤</th><th>资源状态</th><th>上传日期</th></tr></thead><tbody>{filtered.map(item => <tr key={item.id} className={selectedId === item.id ? 'selected' : ''} onClick={() => { setSelectedId(item.id); setEditing(false); }}><td><strong>{item.title}</strong><small>{item.description || item.tags.join('、') || '暂无简介'}</small></td><td>{item.productVersion || '—'}</td><td>{item.stepCount} 步</td><td><Status status={item.assetStatus} kind="asset" /></td><td>{dateOnly(item.uploadedAt)}</td></tr>)}</tbody></table></div>{!loading && filtered.length === 0 && <Empty title={demos.length ? '没有匹配的演示' : '素材库还是空的'} detail={demos.length ? '试试其他关键词、标签或文件夹。' : '上传 SMTX Demo Builder 导出的演示文件，开始建立素材库。'} action={!demos.length && <button className="secondary-button" onClick={() => go(uploadPath)}>上传演示</button>} />}{loading && <p className="loading">正在加载演示…</p>}</section>
+      <section className="panel table-panel"><div className="table-scroll"><table className="resizable-table" style={{ minWidth: `${columnWidths.reduce((sum, width) => sum + width, 0)}px` }}><colgroup>{columnWidths.map((width, index) => <col key={libraryColumns[index].label} style={{ width }} />)}</colgroup><thead><tr>{libraryColumns.map((column, index) => <th key={column.label}>{column.label}<span className="column-resize-handle" role="separator" tabIndex={0} aria-orientation="vertical" aria-label={`调整${column.label}列宽`} aria-valuenow={columnWidths[index]} aria-valuemin={column.min} aria-valuemax={800} title="拖动调整列宽，双击恢复默认" onPointerDown={event => startColumnDrag(index, event)} onPointerMove={moveColumnDrag} onPointerUp={finishColumnDrag} onPointerCancel={finishColumnDrag} onKeyDown={event => keyboardResize(index, event)} onDoubleClick={() => resizeColumn(index, column.initial)} /></th>)}</tr></thead><tbody>{filtered.map(item => <tr key={item.id} className={selectedId === item.id ? 'selected' : ''} onClick={() => { setSelectedId(item.id); setEditing(false); }}><td><strong>{item.title}</strong><small>{item.description || item.tags.join('、') || '暂无简介'}</small></td><td>{item.productVersion || '—'}</td><td>{item.stepCount} 步</td><td><Status status={item.assetStatus} kind="asset" /></td><td>{dateOnly(item.uploadedAt)}</td></tr>)}</tbody></table></div>{!loading && filtered.length === 0 && <Empty title={demos.length ? '没有匹配的演示' : '素材库还是空的'} detail={demos.length ? '试试其他关键词、标签或文件夹。' : '上传 SMTX Demo Builder 导出的演示文件，开始建立素材库。'} action={!demos.length && <button className="secondary-button" onClick={() => go(uploadPath)}>上传演示</button>} />}{loading && <p className="loading">正在加载演示…</p>}</section>
       <aside className="panel detail-panel">{selected ? editing ? <><div className="detail-heading"><h2>编辑演示信息</h2></div><DemoEditor initial={{ title: selected.title, description: selected.description, productVersion: selected.productVersion, tags: selected.tags, uploader: selected.uploader, folderId: selected.folderId }} folders={folders} onSave={save} onCancel={() => setEditing(false)} busy={busy} /></> : <><div className="detail-heading"><h2>{selected.title}</h2></div><p className="detail-description">{selected.description || '暂无简介'}</p><div className="folder-location"><span>所在文件夹： <strong>{folderName(selected.folderId)}</strong></span><label className="move-label"><Icon name="move" size={15} /><select aria-label="移动到文件夹" value={selected.folderId ?? ''} disabled={busy} onChange={e => move(e.target.value || null)}><option value="">移动到：未分类</option>{folders.map(folder => <option key={folder.id} value={folder.id}>移动到：{folder.name}</option>)}</select></label></div><dl className="data-list"><div><dt>产品版本</dt><dd>{selected.productVersion || '—'}</dd></div><div><dt>标签</dt><dd className="tags">{selected.tags.length ? selected.tags.map(tag => <span key={tag}>{tag}</span>) : '—'}</dd></div><div><dt>互动步骤</dt><dd>{selected.stepCount} 步</dd></div><div><dt>资源状态</dt><dd><Status status={selected.assetStatus} kind="asset" /></dd></div><div><dt>上传人</dt><dd>{selected.uploader || '—'}</dd></div><div><dt>上传日期</dt><dd>{dateTime(selected.uploadedAt)}</dd></div></dl>{assetWarning(selected.assetStatus) && <p className="resource-note">{selected.resourceIssueCount ? `${selected.resourceIssueCount} 个资源缺失。` : '部分资源可能缺失。'}播放画面可能不完整。</p>}<button className="primary-button wide" onClick={() => go(`/demos/${encodeURIComponent(selected.id)}/play`)}><Icon name="play" size={18} /> 播放演示</button><button className="secondary-button wide" onClick={() => setEditing(true)}><Icon name="edit" size={17} /> 编辑信息</button><div className="detail-section"><h3>互动步骤</h3>{steps.length ? <ol className="step-list">{steps.map((step, index) => <li key={step.id}><span>{index + 1}</span>{step.title}</li>)}</ol> : <p className="quiet">打开播放器查看演示步骤。</p>}</div><button className="danger-link" disabled={busy} onClick={remove}><Icon name="trash" size={17} /> 删除演示</button></> : <Empty title="选择一个演示" detail="从列表中选择演示查看详情，或上传新演示。" />}</aside></div>
   </main>;
 }
