@@ -4,8 +4,11 @@ dist/
 .superpowers/
 output/
 demos/
+democenter/data/
+democenter/tmp/
 .env
 .env.*
 !.env.example
 *.pem
 *.crx
+.playwright-cli/

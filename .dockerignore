@@ -1,0 +1,11 @@
+.git
+.worktrees
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+demos
+output
+.npm-cache
+*.smtxdemo

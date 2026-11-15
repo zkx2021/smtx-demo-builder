@@ -1,0 +1,36 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: democenter/Dockerfile
+    environment:
+      PORT: "3000"
+      DATABASE_URL: postgresql://democenter:${POSTGRES_PASSWORD:-democenter}@postgres:5432/democenter
+      DATA_DIR: /data/demos
+    ports:
+      - "${DEMO_CENTER_PORT:-8080}:3000"
+    volumes:
+      - demo_files:/data/demos
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: democenter
+      POSTGRES_USER: democenter
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-democenter}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U democenter -d democenter"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  demo_files:
