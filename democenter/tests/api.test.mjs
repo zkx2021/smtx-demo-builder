@@ -12,7 +12,10 @@ const archive = zipSync({
   'package-manifest.json': encode({ packageFormatVersion: 1, demoId: sourceDemoId, exportedAt: new Date().toISOString() }),
   'manifest.json': encode({ formatVersion: 2, id: sourceDemoId, title: '源录制', status: 'ready' }),
   'steps.json': encode([{ id: 'step-1', at: 0, title: '点击', rect: { x: 0.1, y: 0.2, width: 0.1, height: 0.1 } }]),
-  'events/batch.json': encode({ events: [{ type: 2, timestamp: 1000, data: {} }], clicks: [] }),
+  'events/batch.json': encode({ events: [
+    { type: 4, timestamp: 990, data: { href: 'https://demo.test/', width: 1280, height: 720 } },
+    { type: 2, timestamp: 1000, data: {} },
+  ], clicks: [] }),
   'assets/index.json': encode({ version: 1, entries: [] }),
 });
 
@@ -82,7 +85,7 @@ test('inspects, publishes, lists and plays a package without replacing source ID
     assert.equal(playback.status, 200);
     const loaded = await playback.json();
     assert.equal(loaded.manifest.id, sourceDemoId);
-    assert.equal(loaded.events[0].timestamp, 1000);
+    assert.equal(loaded.events[0].timestamp, 990);
     assert.equal(loaded.assetStatus, 'no-candidates');
     assert.equal(loaded.resourceIssueCount, 0);
     const again = await fetch(`${base}/api/demos`, { method: 'POST', headers: { 'content-type': 'application/json' },

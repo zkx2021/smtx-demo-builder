@@ -7,6 +7,10 @@ import { unzipSync, strFromU8 } from 'fflate';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+if (process.argv.includes('--require-democenter') && !process.env.DEMO_CENTER_URL) {
+  throw new Error('Set DEMO_CENTER_URL to run the required DemoCenter import and playback checks.');
+}
+
 const profile = await mkdtemp(join(tmpdir(), 'hci-demo-smoke-'));
 const extensionPath = join(profile, 'extension');
 await cp(resolve('dist'), extensionPath, { recursive: true });

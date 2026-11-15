@@ -14,7 +14,10 @@ const base = () => ({
   'manifest.json': encode({ formatVersion: 2, id: demoId, title: '测试演示', status: 'ready', offlineAssets: { discovered: 0 } }),
   'steps.json': encode([{ id: 'step-1', at: 0, title: '下一步', rect: { x: 0.1, y: 0.1, width: 0.2, height: 0.2 } }]),
   'events/': new Uint8Array(),
-  'events/batch-1.json': encode({ type: 'EVENT_BATCH', events: [{ type: 2, timestamp: 1000, data: {} }], clicks: [] }),
+  'events/batch-1.json': encode({ type: 'EVENT_BATCH', events: [
+    { type: 4, timestamp: 990, data: { href: 'https://demo.test/', width: 1280, height: 720 } },
+    { type: 2, timestamp: 1000, data: {} },
+  ], clicks: [] }),
   'assets/index.json': encode({ version: 1, entries: [] }),
 });
 
@@ -34,7 +37,7 @@ test('extracts and validates a playable package', async () => {
     const result = await inspectExtractedPackage(extracted);
     assert.equal(result.manifest.id, demoId);
     assert.equal(result.steps.length, 1);
-    assert.equal(result.events.length, 1);
+    assert.equal(result.events.length, 2);
     assert.equal(result.assetStatus, 'no-candidates');
   });
 });
@@ -49,6 +52,14 @@ test('rejects incomplete recordings and recordings without hotspots', async () =
       await assert.rejects(inspectExtractedPackage(extracted), /已完成|热点/);
     });
   }
+});
+
+test('rejects a single snapshot event that the player cannot replay', async () => {
+  const entries = { ...base(), 'events/batch-1.json': encode({ events: [{ type: 2, timestamp: 1000, data: {} }] }) };
+  await withArchive(entries, async ({ archive, extracted }) => {
+    await extractPackage(archive, extracted);
+    await assert.rejects(inspectExtractedPackage(extracted), /录制事件/);
+  });
 });
 
 test('reports missing saved resources as partial', async () => {

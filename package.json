@@ -8,6 +8,7 @@
     "package:extension": "npm run build && powershell.exe -NoProfile -NonInteractive -File scripts/package.ps1",
     "fixture": "vite --host 127.0.0.1 --port 4173",
     "smoke": "node scripts/permission-smoke.mjs && node scripts/smoke.mjs",
+    "smoke:democenter": "node scripts/permission-smoke.mjs && node scripts/smoke.mjs --require-democenter",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.ts"
   },

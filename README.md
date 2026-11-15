@@ -40,7 +40,7 @@ npm run smoke
 
 可用 `npm run fixture` 启动本地测试页，然后打开 `http://127.0.0.1:4173/fixture.html` 测试“新建虚拟机 → 确认创建”。
 
-`npm run smoke` 会在临时 Edge 配置中自动完成录制、页面刷新、选择热点、导出和播放，并将播放器截图写到 `output/playwright/player.png`。设置 `DEMO_CENTER_URL=http://127.0.0.1:8080` 后还会将导出的包上传到正在运行的 DemoCenter、读取回放数据并删除联调记录。自动测试用浏览器临时存储模拟目录选择；正式使用时仍由售前在系统目录选择器中选定本机目录。
+`npm run smoke` 会在临时 Edge 配置中自动完成录制、页面刷新、选择热点、导出和播放，并将播放器截图写到 `output/playwright/player.png`。验证与网站的兼容性时，先启动 DemoCenter，再运行 `$env:DEMO_CENTER_URL='http://127.0.0.1:8080'; npm run smoke:democenter`。此命令要求设置网站地址，会上传真实 Edge 导出的包、打开网站播放器点击热点，并在结束后删除联调记录。自动测试用浏览器临时存储模拟目录选择；正式使用时仍由售前在系统目录选择器中选定本机目录。
 
 ## 素材位置与当前边界
 

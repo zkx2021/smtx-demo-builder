@@ -34,7 +34,15 @@ function fixture(options: { formatVersion?: 1 | 2; status?: string; steps?: unkn
   const manifest = { formatVersion: options.formatVersion ?? 2, id: demoId, title: '创建虚拟机', sourceUrl: 'https://demo.test/', status: options.status ?? 'ready',
     offlineAssets: { discovered: 3, saved: 2, failed: 1, uniqueBytes: assetBytes.length, status: 'partial' } };
   const steps = options.steps ?? [{ id: 'step-1', at: 100, title: '新建虚拟机', rect: { x: .1, y: .2, width: .2, height: .1 } }];
-  const events = options.events ?? [{ type: 2, timestamp: 1000, data: {} }];
+  const events = options.events ?? [
+    { type: 4, timestamp: 990, data: { href: 'https://demo.test/', width: 1280, height: 720 } },
+    { type: 2, timestamp: 1000, data: { initialOffset: { top: 0, left: 0 }, node: {
+      type: 0, id: 1, childNodes: [{ type: 2, id: 2, tagName: 'html', attributes: {}, childNodes: [
+        { type: 2, id: 3, tagName: 'head', attributes: {}, childNodes: [] },
+        { type: 2, id: 4, tagName: 'body', attributes: {}, childNodes: [] },
+      ] }],
+    } } },
+  ];
   const assets = { 'index.json': file('index.json', { version: 1, entries: [
     { url: 'https://demo.test/a.png', context: 'img', status: 'saved', filename, bytes: assetBytes.length, mime: 'image/png' },
     { url: 'https://demo.test/b.png', context: 'css', status: 'saved', filename, bytes: assetBytes.length, mime: 'image/png' },
@@ -68,27 +76,67 @@ test('rejects unfinished recordings, missing hotspots, invalid events and unsafe
   await assert.rejects(prepareDemoPackage(fixture({ status: 'recording' }).root, demoId), /已完成/);
   await assert.rejects(prepareDemoPackage(fixture({ steps: [] }).root, demoId), /热点/);
   await assert.rejects(prepareDemoPackage(fixture({ events: [] }).root, demoId), /事件/);
+  await assert.rejects(prepareDemoPackage(fixture({ events: [{ type: 2, timestamp: 1000, data: {} }] }).root, demoId), /事件/);
+  await assert.rejects(prepareDemoPackage(fixture({ events: [{ type: 2, timestamp: 1000, data: [] }] }).root, demoId), /事件/);
   await assert.rejects(prepareDemoPackage(fixture({ eventName: '../escape.json' }).root, demoId), /文件名/);
 });
 
 test('cleans Windows reserved characters from the suggested filename', () => {
   assert.equal(suggestedDemoPackageName('创建:虚拟机?/测试*'), '创建_虚拟机_测试.smtxdemo');
   assert.equal(suggestedDemoPackageName('CON'), 'CON_.smtxdemo');
+  assert.equal(suggestedDemoPackageName('CON.notes'), 'CON_.notes.smtxdemo');
+  assert.equal(suggestedDemoPackageName(`${'a'.repeat(99)}.`), `${'a'.repeat(99)}.smtxdemo`);
+});
+
+test('rejects packages over DemoCenter entry and uncompressed size limits before opening output', async () => {
+  const base = await prepareDemoPackage(fixture().root, demoId);
+  const tooMany = { ...base, entries: [...base.entries] };
+  for (let i = 0; tooMany.entries.length <= 2000; i++) {
+    tooMany.entries.push({ path: `events/extra-${i}.json`, file: new Blob(['{}']) });
+  }
+  const countTarget = destination();
+  await assert.rejects(writeDemoPackage(tooMany, countTarget.handle), /文件数量/);
+  assert.equal(countTarget.started, false);
+
+  const oversized = (size: number) => {
+    const blob = new Blob(['{}']);
+    Object.defineProperty(blob, 'size', { value: size });
+    return blob;
+  };
+  const oneLarge = { ...base, entries: base.entries.map(entry => entry.path.startsWith('assets/') && entry.path !== 'assets/index.json'
+    ? { ...entry, file: oversized(512_000_001) } : entry) };
+  const largeTarget = destination();
+  await assert.rejects(writeDemoPackage(oneLarge, largeTarget.handle), /单个文件/);
+  assert.equal(largeTarget.started, false);
+
+  const totalLarge = { ...base, entries: [...base.entries,
+    { path: 'assets/' + 'a'.repeat(64) + '.png', file: oversized(500_000_000) },
+    { path: 'assets/' + 'b'.repeat(64) + '.png', file: oversized(500_000_000) }] };
+  const totalTarget = destination();
+  await assert.rejects(writeDemoPackage(totalLarge, totalTarget.handle), /解压后/);
+  assert.equal(totalTarget.started, false);
+
+  const largeJson = { ...base, entries: base.entries.map(entry => entry.path === 'steps.json'
+    ? { ...entry, file: oversized(128_000_001) } : entry) };
+  const jsonTarget = destination();
+  await assert.rejects(writeDemoPackage(largeJson, jsonTarget.handle), /JSON/);
+  assert.equal(jsonTarget.started, false);
 });
 
 function destination(failAt = Infinity) {
   const chunks: Uint8Array[] = [];
   let closed = false;
   let aborted = false;
-  const handle = { createWritable: async () => ({
+  let started = false;
+  const handle = { createWritable: async () => { started = true; return ({
     async write(value: BufferSource) {
       if (chunks.length >= failAt) throw new Error('Disk full');
       chunks.push(new Uint8Array(value instanceof ArrayBuffer ? value : value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength)));
     },
     async close() { closed = true; },
     async abort() { aborted = true; },
-  }) } as unknown as FileSystemFileHandle;
-  return { handle, chunks, get closed() { return closed; }, get aborted() { return aborted; } };
+  }); } } as unknown as FileSystemFileHandle;
+  return { handle, chunks, get started() { return started; }, get closed() { return closed; }, get aborted() { return aborted; } };
 }
 
 test('writes a streamable ZIP accepted by the DemoCenter package contract', async () => {

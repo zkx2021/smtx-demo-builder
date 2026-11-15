@@ -150,7 +150,7 @@ export async function inspectExtractedPackage(dir) {
     if (!isObject(batch) || !Array.isArray(batch.events) || batch.events.some(event => !isObject(event) || !Number.isInteger(event.type) || !finiteNonnegative(event.timestamp) || !isObject(event.data))) throw new PackageError('演示录制事件无效');
     events.push(...batch.events);
   }
-  if (!events.length || !events.some(event => event.type === 2)) throw new PackageError('演示缺少有效录制事件');
+  if (events.length < 2 || !events.some(event => event.type === 2)) throw new PackageError('演示缺少有效录制事件');
   let assets = null;
   let assetStatus = manifest.formatVersion === 1 ? 'legacy' : 'no-candidates';
   let resourceIssueCount = 0;

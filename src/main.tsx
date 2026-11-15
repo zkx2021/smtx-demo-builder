@@ -337,8 +337,7 @@ function SidePanel() {
       const { bytesWritten } = await writeDemoPackage(prepared, destination);
       const size = bytesWritten >= 1_000_000 ? `${(bytesWritten / 1_000_000).toFixed(1)} MB` : `${Math.ceil(bytesWritten / 1_000)} KB`;
       const missing = prepared.resourceIssueCount ? `；${prepared.resourceIssueCount} 项资源未保存，回放画面可能不完整` : '';
-      const tooLarge = bytesWritten > 512_000_000 ? '；文件超过 DemoCenter 默认的 512 MB 上传上限' : '';
-      setNotice(`已导出演示“${demo.title}”（${size}）${missing}${tooLarge}。`);
+      setNotice(`已导出演示“${demo.title}”（${size}）${missing}。`);
     } catch (error) { setNotice(`导出演示失败：${errorText(error)}。请检查演示内容或另选保存位置。`); }
     finally { setExportingId(null); }
   }
