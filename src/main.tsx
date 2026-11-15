@@ -10,6 +10,7 @@ import { ASSET_PORT, receiveAssetPort } from './asset-protocol.ts';
 import { AssetCoverage } from './asset-coverage.tsx';
 import type { AssetIssue } from './asset-coverage.tsx';
 import { isAssetIndex } from './asset-store.ts';
+import { prepareDemoPackage, suggestedDemoPackageName, writeDemoPackage } from './demo-package.ts';
 import './styles.css';
 
 const SCRIPT_ID = 'hci-local-demo-recorder';
@@ -60,6 +61,7 @@ function SidePanel() {
   const [address, setAddress] = useState('');
   const [busy, setBusy] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [exportingId, setExportingId] = useState<string | null>(null);
   const [savingInterrupted, setSavingInterrupted] = useState(false);
   const [notice, setNotice] = useState('');
   const rootRef = useRef<FileSystemDirectoryHandle | null>(null);
@@ -315,6 +317,32 @@ function SidePanel() {
     finally { setDeletingId(null); }
   }
 
+  async function exportDemo(demo: DemoManifest) {
+    if (!root || exportingId || demo.status !== 'ready') return;
+    let destination: FileSystemFileHandle;
+    try {
+      if (!('showSaveFilePicker' in window)) throw new Error('当前浏览器不支持保存演示文件，请使用 Chrome 或 Edge');
+      destination = await window.showSaveFilePicker({ suggestedName: suggestedDemoPackageName(demo.title),
+        types: [{ description: 'SMTX Demo 演示包', accept: { 'application/zip': ['.smtxdemo'] } }] });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      setNotice(`无法选择导出位置：${errorText(error)}`);
+      return;
+    }
+    setExportingId(demo.id);
+    setNotice('正在导出演示，请勿关闭录制面板。');
+    try {
+      if (!(await hasWritePermission(root)) && !(await requestWritePermission(root))) throw new Error('请先授权素材库目录');
+      const prepared = await prepareDemoPackage(root, demo.id);
+      const { bytesWritten } = await writeDemoPackage(prepared, destination);
+      const size = bytesWritten >= 1_000_000 ? `${(bytesWritten / 1_000_000).toFixed(1)} MB` : `${Math.ceil(bytesWritten / 1_000)} KB`;
+      const missing = prepared.resourceIssueCount ? `；${prepared.resourceIssueCount} 项资源未保存，回放画面可能不完整` : '';
+      const tooLarge = bytesWritten > 512_000_000 ? '；文件超过 DemoCenter 默认的 512 MB 上传上限' : '';
+      setNotice(`已导出演示“${demo.title}”（${size}）${missing}${tooLarge}。`);
+    } catch (error) { setNotice(`导出演示失败：${errorText(error)}。请检查演示内容或另选保存位置。`); }
+    finally { setExportingId(null); }
+  }
+
   return <div className="side-panel">
     <header className="panel-header"><div className="brand-mark">D</div><div><h1>SMTX Demo Builder</h1><p>Record · Add Hotspots · Replay</p></div></header>
     <section className="panel-section">
@@ -337,7 +365,7 @@ function SidePanel() {
       {demos.length === 0 ? <p className="muted">暂无演示。完成录制后，演示将在此显示。</p> : demos.map(demo =>
         <div className="demo-item" key={demo.id}><div className="demo-main"><strong>{demo.title}</strong><small>{new Date(demo.createdAt).toLocaleString()} · {demo.status === 'ready' ? '可播放' : '录制未完成'}</small>
           <AssetCoverage formatVersion={demo.formatVersion} summary={demo.offlineAssets} assets={coverages[demo.id]?.assets} issues={coverages[demo.id]?.issues} /></div>
-          <div className="row"><button type="button" onClick={() => openPage('editor', demo.id)}>编辑热点</button><button type="button" onClick={() => openPage('player', demo.id)}>播放</button><button type="button" className="danger" onClick={() => void removeDemo(demo)} disabled={deletingId !== null || active?.demoId === demo.id} title={active?.demoId === demo.id ? '请先结束录制' : `永久删除“${demo.title}”`}>删除</button></div></div>)}
+          <div className="row"><button type="button" onClick={() => openPage('editor', demo.id)}>编辑热点</button><button type="button" onClick={() => openPage('player', demo.id)}>播放</button><button type="button" onClick={() => void exportDemo(demo)} disabled={exportingId !== null || demo.status !== 'ready' || active?.demoId === demo.id} title={demo.status !== 'ready' ? '请先结束录制' : '导出为 .smtxdemo 文件'}>{exportingId === demo.id ? '导出中…' : '导出'}</button><button type="button" className="danger" onClick={() => void removeDemo(demo)} disabled={deletingId !== null || exportingId !== null || active?.demoId === demo.id} title={active?.demoId === demo.id ? '请先结束录制' : `永久删除“${demo.title}”`}>删除</button></div></div>)}
     </section>
     {notice && <p className="notice" role="status">{notice}</p>}
   </div>;

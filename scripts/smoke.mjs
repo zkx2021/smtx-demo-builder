@@ -3,6 +3,7 @@ import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/pr
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
+import { unzipSync, strFromU8 } from 'fflate';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -95,6 +96,10 @@ try {
   context.on('page', openPage => openPage.on('pageerror', error => errors.push(error.message)));
   await context.addInitScript(() => {
     Object.defineProperty(window, 'showDirectoryPicker', { configurable: true, value: () => navigator.storage.getDirectory() });
+    Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: async () => {
+      const root = await navigator.storage.getDirectory();
+      return root.getFileHandle('smoke-export.smtxdemo', { create: true });
+    } });
     if (typeof FileSystemHandle !== 'undefined') {
       FileSystemHandle.prototype.queryPermission ??= async () => 'granted';
       FileSystemHandle.prototype.requestPermission ??= async () => 'granted';
@@ -158,6 +163,8 @@ try {
   const recordedDemoItem = page.locator('.demo-item').filter({ hasText: '创建虚拟机' });
   assert.equal(await recordedDemoItem.getByRole('button', { name: '删除' }).isDisabled(), true,
     'The active recording must not be deletable');
+  assert.equal(await recordedDemoItem.getByRole('button', { name: '导出' }).isDisabled(), true,
+    'The active recording must not be exportable');
   assert.equal(await recordedDemoItem.getByRole('button', { name: '删除' }).evaluate(button => getComputedStyle(button).color),
     'rgb(255, 255, 255)', 'Danger action text must remain readable against its red background');
   await target.getByRole('button', { name: '新建虚拟机' }).click();
@@ -356,6 +363,63 @@ try {
   await editor.getByRole('button', { name: /新建虚拟机/ }).first().click();
   await editor.getByRole('button', { name: '添加交互热点' }).click();
   await editor.getByText('交互热点已保存').waitFor();
+  await recordedDemoItem.getByRole('button', { name: '导出' }).click();
+  await page.getByText(/已导出演示“创建虚拟机”/).waitFor({ timeout: 15000 });
+  const exportedBytes = await page.evaluate(async () => {
+    const root = await navigator.storage.getDirectory();
+    const exported = await (await root.getFileHandle('smoke-export.smtxdemo')).getFile();
+    return [...new Uint8Array(await exported.arrayBuffer())];
+  });
+  const exportedPackage = unzipSync(new Uint8Array(exportedBytes));
+  assert.equal(JSON.parse(strFromU8(exportedPackage['package-manifest.json'])).packageFormatVersion, 1);
+  assert.equal(JSON.parse(strFromU8(exportedPackage['manifest.json'])).id, assetStorage.demoId);
+  assert.equal(JSON.parse(strFromU8(exportedPackage['steps.json'])).length, 1);
+  assert.ok(Object.keys(exportedPackage).some(name => name.startsWith('events/')));
+  console.log(`Exported .smtxdemo package from Edge: ${exportedBytes.length} bytes, ${Object.keys(exportedPackage).length} entries.`);
+  if (process.env.DEMO_CENTER_URL) {
+    const api = process.env.DEMO_CENTER_URL.replace(/\/$/, '');
+    const form = new FormData();
+    form.append('file', new Blob([new Uint8Array(exportedBytes)], { type: 'application/zip' }), 'smoke-export.smtxdemo');
+    const inspectionResponse = await fetch(`${api}/api/demos/inspect`, { method: 'POST', body: form });
+    if (inspectionResponse.status !== 200) throw new Error(`DemoCenter inspection failed: ${await inspectionResponse.text()}`);
+    const inspection = await inspectionResponse.json();
+    assert.equal(inspection.stepCount, 1);
+    assert.ok(inspection.resourceIssueCount > 0);
+    const publishResponse = await fetch(`${api}/api/demos`, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ uploadToken: inspection.uploadToken, title: 'Edge 导出联调' }) });
+    if (publishResponse.status !== 201) throw new Error(`DemoCenter publish failed: ${await publishResponse.text()}`);
+    const published = await publishResponse.json();
+    try {
+      const playbackResponse = await fetch(`${api}/api/demos/${published.id}/playback`);
+      assert.equal(playbackResponse.status, 200);
+      const playback = await playbackResponse.json();
+      assert.equal(playback.steps.length, 1);
+      assert.equal(playback.manifest.id, assetStorage.demoId);
+      assert.ok(playback.events.some(event => event.type === 2));
+      const centerPage = await context.newPage();
+      try {
+        await centerPage.goto(`${api}/demos/${published.id}/play`);
+        const hotspot = centerPage.getByRole('button', { name: '点击热点：新建虚拟机' });
+        await hotspot.waitFor({ timeout: 20000 });
+        await hotspot.click();
+        await centerPage.getByRole('heading', { name: '演示已完成' }).waitFor({ timeout: 20000 });
+      } finally { await centerPage.close(); }
+      console.log(`DemoCenter imported the Edge export: ${published.id}, ${playback.events.length} events.`);
+    } finally {
+      const deleted = await fetch(`${api}/api/demos/${published.id}`, { method: 'DELETE' });
+      assert.equal(deleted.status, 200);
+    }
+  }
+  const exportNotice = await page.locator('.notice').innerText();
+  await page.evaluate(() => Object.defineProperty(window, 'showSaveFilePicker', { configurable: true,
+    value: async () => { throw new DOMException('Cancelled', 'AbortError'); } }));
+  await recordedDemoItem.getByRole('button', { name: '导出' }).click();
+  assert.equal(await page.locator('.notice').innerText(), exportNotice, 'Cancelling Save As must not replace the last successful notice');
+  await page.evaluate(() => Object.defineProperty(window, 'showSaveFilePicker', { configurable: true,
+    value: async () => ({ createWritable: async () => ({ write: async () => { throw new Error('Disk full'); }, abort: async () => { window.exportAbortObserved = true; } }) }) }));
+  await recordedDemoItem.getByRole('button', { name: '导出' }).click();
+  await page.getByText(/导出演示失败：Disk full/).waitFor();
+  assert.equal(await page.evaluate(() => window.exportAbortObserved), true, 'Failed export must abort the output file');
   const playerPagePromise = context.waitForEvent('page');
   await editor.getByRole('button', { name: '播放演示' }).click();
   const player = await playerPagePromise;
