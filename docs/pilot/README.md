@@ -1,6 +1,6 @@
 # SMTX Demo Builder 内测试点指南
 
-适用对象：使用 Windows、Microsoft Edge 或 Google Chrome 的一线售前同事。当前试点版本为 **v0.1.0**。本工具用于录制网页操作、设置交互热点，并按预设步骤回放演示；无需安装 Node.js 或获取项目源码。
+适用对象：使用 Windows、Microsoft Edge 或 Google Chrome 的一线售前同事。当前试点版本为 **v2.0.0**。本工具用于录制网页操作、设置交互热点，并按预设步骤回放演示；无需安装 Node.js 或获取项目源码。
 
 ## 试点前准备
 
@@ -9,13 +9,13 @@
 - 准备两个不同的本机目录：一个放解压后的**扩展程序文件**，另一个作为工具内选择的**演示素材库**。素材库请放在公司允许使用的非同步本地目录，不要放在临时目录或自动同步网盘。
 - 如公司策略禁止浏览器开发者模式，请联系试点负责人或 IT；不要绕过设备管理策略。
 
-## 获取并安装 v0.1.0
+## 获取并安装 v2.0.0
 
-1. 从[私有仓库发布页](https://github.com/zkx2021/smtx-demo-builder/releases/tag/v0.1.0)或试点负责人指定的内部渠道获取 `SMTX-Demo-Builder-v0.1.0.zip` 和同名 `.sha256` 文件。GitHub 发布页需要仓库读取权限。**不要下载页面上的 “Source code” 压缩包**，它不是可安装的扩展包。
+1. 从[私有仓库发布页](https://github.com/zkx2021/smtx-demo-builder/releases)或试点负责人指定的内部渠道获取 `SMTX-Demo-Builder-v2.0.0.zip` 和同名 `.sha256` 文件。GitHub 发布页需要仓库读取权限。**不要下载页面上的 “Source code” 压缩包**，它不是可安装的扩展包。
 2. 可在 PowerShell 中运行以下命令，核对输出的 SHA-256 与 `.sha256` 文件开头的 64 位字符一致；若不一致，停止安装并联系试点负责人。
 
    ```powershell
-   (Get-FileHash -LiteralPath .\SMTX-Demo-Builder-v0.1.0.zip -Algorithm SHA256).Hash
+   (Get-FileHash -LiteralPath .\SMTX-Demo-Builder-v2.0.0.zip -Algorithm SHA256).Hash
    ```
 
 3. 将 ZIP 解压到固定的本机目录。打开解压目录，确认其中直接有 `manifest.json`；安装时选择这一层目录，不要选 ZIP 文件或它的上级目录。
@@ -36,7 +36,7 @@
 请将以下信息反馈给试点负责人；不要求提交录制文件本身：
 
 ```text
-工具版本：v0.1.0
+工具版本：v2.0.0
 Windows 版本：
 浏览器及版本：Edge / Chrome，版本号：
 录制时 VPN：已连接 / 未连接
