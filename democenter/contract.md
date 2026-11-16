@@ -8,7 +8,7 @@
 
 `POST /api/environments` → `Environment`；`PATCH /api/environments/:id` → `Environment`；`DELETE /api/environments/:id` → `{ok:true}`。
 
-`Environment`: `{id,name,purpose,url,externalStatus,usageStatus,releaseAt,note,accounts,updatedAt}`。`externalStatus` 为 `public|internal`；`usageStatus` 为 `open|maintenance|occupied`。`accounts` 为 `{label,username,password}[]`。
+`Environment`: `{id,name,purpose,url,externalStatus,usageStatus,releaseAt,note,accounts,updatedAt}`。`externalStatus` 为 `public|internal`；`usageStatus` 为 `open|requestable|maintenance|occupied`，分别对应“公开”“可申请”“维护中”“占用中”。`accounts` 为 `{label,username,password}[]`。
 
 ## 文件夹
 

@@ -13,7 +13,8 @@ export async function initializeDatabase(pool) {
       purpose text NOT NULL DEFAULT '',
       url text NOT NULL DEFAULT '',
       external_status text NOT NULL DEFAULT 'internal' CHECK (external_status IN ('public', 'internal')),
-      usage_status text NOT NULL DEFAULT 'open' CHECK (usage_status IN ('open', 'maintenance', 'occupied')),
+      usage_status text NOT NULL DEFAULT 'open' CONSTRAINT environments_usage_status_check
+        CHECK (usage_status IN ('open', 'requestable', 'maintenance', 'occupied')),
       release_at timestamptz,
       note text NOT NULL DEFAULT '',
       accounts jsonb NOT NULL DEFAULT '[]'::jsonb,
@@ -42,5 +43,18 @@ export async function initializeDatabase(pool) {
       resource_issue_count integer NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS demos_folder_id_idx ON demos(folder_id);
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'environments'::regclass
+          AND conname = 'environments_usage_status_check'
+          AND pg_get_constraintdef(oid) LIKE '%requestable%'
+      ) THEN
+        ALTER TABLE environments DROP CONSTRAINT IF EXISTS environments_usage_status_check;
+        ALTER TABLE environments ADD CONSTRAINT environments_usage_status_check
+          CHECK (usage_status IN ('open', 'requestable', 'maintenance', 'occupied'));
+      END IF;
+    END $$;
   `);
 }

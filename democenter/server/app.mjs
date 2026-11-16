@@ -52,7 +52,7 @@ function folderId(value) {
 }
 function environmentInput(input, existing = {}) {
   const merged = { ...existing, ...input };
-  const usageStatus = enumValue(merged.usageStatus ?? 'open', ['open', 'maintenance', 'occupied'], '使用状态');
+  const usageStatus = enumValue(merged.usageStatus ?? 'open', ['open', 'requestable', 'maintenance', 'occupied'], '使用状态');
   return {
     name: requiredName(merged.name, '环境名称'),
     purpose: string(merged.purpose, '用途', 1000),

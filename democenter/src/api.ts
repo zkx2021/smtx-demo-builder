@@ -1,6 +1,6 @@
 export interface Account { label: string; username: string; password: string }
 export type ExternalStatus = 'public' | 'internal';
-export type UsageStatus = 'open' | 'maintenance' | 'occupied';
+export type UsageStatus = 'open' | 'requestable' | 'maintenance' | 'occupied';
 export interface Environment {
   id: string; name: string; purpose: string; url: string;
   externalStatus: ExternalStatus; usageStatus: UsageStatus;

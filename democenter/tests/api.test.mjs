@@ -21,8 +21,26 @@ const archive = zipSync({
 
 class FakePool {
   demos = [];
+  environments = [];
   async query(sql, values = []) {
     if (sql === 'SELECT 1') return { rows: [{ '?column?': 1 }] };
+    if (sql.startsWith('INSERT INTO environments')) {
+      const [id, name, purpose, url, external_status, usage_status, release_at, note, accounts] = values;
+      const row = { id, name, purpose, url, external_status, usage_status, release_at, note,
+        accounts: JSON.parse(accounts), updated_at: new Date() };
+      this.environments.push(row);
+      return { rows: [row] };
+    }
+    if (sql === 'SELECT * FROM environments ORDER BY updated_at DESC, name ASC') return { rows: [...this.environments] };
+    if (sql === 'SELECT * FROM environments WHERE id=$1') return { rows: this.environments.filter(row => row.id === values[0]) };
+    if (sql.startsWith('UPDATE environments')) {
+      const row = this.environments.find(item => item.id === values[0]);
+      if (!row) return { rows: [] };
+      [row.name, row.purpose, row.url, row.external_status, row.usage_status, row.release_at, row.note] = values.slice(1, 8);
+      row.accounts = JSON.parse(values[8]);
+      row.updated_at = new Date();
+      return { rows: [row] };
+    }
     if (sql.startsWith('INSERT INTO demos')) {
       const [id, source_demo_id, title, description, product_version, tags, uploader, folder_id,
         format_version, package_format_version, step_count, asset_status, resource_issue_count] = values;
@@ -59,6 +77,26 @@ test('health checks database readiness and validation errors are JSON', async ()
     const invalid = await fetch(`${base}/api/environments`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
     assert.equal(invalid.status, 400);
     assert.match((await invalid.json()).error, /名称/);
+  });
+});
+
+test('creates and updates an environment with the requestable usage status', async () => {
+  await withServer(async ({ base }) => {
+    const createdResponse = await fetch(`${base}/api/environments`, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: '待申请演示环境', externalStatus: 'internal', usageStatus: 'requestable' }) });
+    assert.equal(createdResponse.status, 201);
+    const created = await createdResponse.json();
+    assert.equal(created.usageStatus, 'requestable');
+    assert.equal(created.externalStatus, 'internal');
+    const listed = await (await fetch(`${base}/api/environments`)).json();
+    assert.equal(listed[0].usageStatus, 'requestable');
+    const updatedResponse = await fetch(`${base}/api/environments/${created.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ usageStatus: 'occupied', releaseAt: '2026-11-20T10:00:00.000Z' }) });
+    assert.equal(updatedResponse.status, 200);
+    const backToRequestable = await fetch(`${base}/api/environments/${created.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ usageStatus: 'requestable' }) });
+    assert.equal(backToRequestable.status, 200);
+    assert.equal((await backToRequestable.json()).releaseAt, null);
   });
 });
 
