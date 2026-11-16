@@ -15,6 +15,8 @@ export async function initializeDatabase(pool) {
       external_status text NOT NULL DEFAULT 'internal' CHECK (external_status IN ('public', 'internal')),
       usage_status text NOT NULL DEFAULT 'open' CONSTRAINT environments_usage_status_check
         CHECK (usage_status IN ('open', 'requestable', 'maintenance', 'occupied')),
+      cpu_architecture text CONSTRAINT environments_cpu_architecture_check
+        CHECK (cpu_architecture IN ('X86', 'Hygon', 'Kunpeng')),
       release_at timestamptz,
       note text NOT NULL DEFAULT '',
       accounts jsonb NOT NULL DEFAULT '[]'::jsonb,
@@ -43,6 +45,9 @@ export async function initializeDatabase(pool) {
       resource_issue_count integer NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS demos_folder_id_idx ON demos(folder_id);
+    ALTER TABLE environments ADD COLUMN IF NOT EXISTS cpu_architecture text
+      CONSTRAINT environments_cpu_architecture_check
+      CHECK (cpu_architecture IN ('X86', 'Hygon', 'Kunpeng'));
     DO $$
     BEGIN
       IF NOT EXISTS (

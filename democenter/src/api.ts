@@ -1,9 +1,10 @@
 export interface Account { label: string; username: string; password: string }
 export type ExternalStatus = 'public' | 'internal';
 export type UsageStatus = 'open' | 'requestable' | 'maintenance' | 'occupied';
+export type CpuArchitecture = 'X86' | 'Hygon' | 'Kunpeng';
 export interface Environment {
   id: string; name: string; purpose: string; url: string;
-  externalStatus: ExternalStatus; usageStatus: UsageStatus;
+  externalStatus: ExternalStatus; usageStatus: UsageStatus; cpuArchitecture: CpuArchitecture | null;
   releaseAt: string | null; note: string; accounts: Account[]; updatedAt: string;
 }
 export type EnvironmentInput = Omit<Environment, 'id' | 'updatedAt'>;

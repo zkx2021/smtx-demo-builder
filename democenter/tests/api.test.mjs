@@ -25,9 +25,9 @@ class FakePool {
   async query(sql, values = []) {
     if (sql === 'SELECT 1') return { rows: [{ '?column?': 1 }] };
     if (sql.startsWith('INSERT INTO environments')) {
-      const [id, name, purpose, url, external_status, usage_status, release_at, note, accounts] = values;
+      const [id, name, purpose, url, external_status, usage_status, release_at, note, accounts, cpu_architecture] = values;
       const row = { id, name, purpose, url, external_status, usage_status, release_at, note,
-        accounts: JSON.parse(accounts), updated_at: new Date() };
+        accounts: JSON.parse(accounts), cpu_architecture, updated_at: new Date() };
       this.environments.push(row);
       return { rows: [row] };
     }
@@ -38,6 +38,7 @@ class FakePool {
       if (!row) return { rows: [] };
       [row.name, row.purpose, row.url, row.external_status, row.usage_status, row.release_at, row.note] = values.slice(1, 8);
       row.accounts = JSON.parse(values[8]);
+      row.cpu_architecture = values[9];
       row.updated_at = new Date();
       return { rows: [row] };
     }
@@ -97,6 +98,23 @@ test('creates and updates an environment with the requestable usage status', asy
       body: JSON.stringify({ usageStatus: 'requestable' }) });
     assert.equal(backToRequestable.status, 200);
     assert.equal((await backToRequestable.json()).releaseAt, null);
+  });
+});
+
+test('stores a supported CPU architecture and rejects unknown values', async () => {
+  await withServer(async ({ base }) => {
+    const create = await fetch(`${base}/api/environments`, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: '架构测试环境', cpuArchitecture: 'Hygon' }) });
+    assert.equal(create.status, 201);
+    const created = await create.json();
+    assert.equal(created.cpuArchitecture, 'Hygon');
+    const update = await fetch(`${base}/api/environments/${created.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ cpuArchitecture: 'Kunpeng' }) });
+    assert.equal(update.status, 200);
+    assert.equal((await update.json()).cpuArchitecture, 'Kunpeng');
+    const invalid = await fetch(`${base}/api/environments/${created.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ cpuArchitecture: 'ARM' }) });
+    assert.equal(invalid.status, 400);
   });
 });
 
