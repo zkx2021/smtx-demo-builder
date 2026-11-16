@@ -8,7 +8,7 @@
 
 `POST /api/environments` → `Environment`；`PATCH /api/environments/:id` → `Environment`；`DELETE /api/environments/:id` → `{ok:true}`。
 
-`Environment`: `{id,name,purpose,url,externalStatus,usageStatus,cpuArchitecture,releaseAt,note,accounts,updatedAt}`。`externalStatus` 为 `public|internal`；`usageStatus` 为 `open|requestable|maintenance|occupied`，分别对应“公开”“可申请”“维护中”“占用中”。`cpuArchitecture` 为 `X86|Hygon|Kunpeng|null`，既有环境默认为 `null`。`accounts` 为 `{label,username,password}[]`。
+`Environment`: `{id,name,purpose,url,externalStatus,usageStatus,platform,cpuArchitecture,releaseAt,note,accounts,updatedAt}`。`externalStatus` 为 `public|internal`；`usageStatus` 为 `open|requestable|maintenance|occupied`，分别对应“公开”“可申请”“维护中”“占用中”。`platform` 为 `hci|virtualization|null`，分别显示“超融合”“虚拟化”“未指定”；`cpuArchitecture` 为 `X86|Hygon|Kunpeng|null`。既有环境的新字段默认为 `null`。`accounts` 为 `{label,username,password}[]`。
 
 ## 文件夹
 

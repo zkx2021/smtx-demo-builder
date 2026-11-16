@@ -55,6 +55,8 @@ function environmentInput(input, existing = {}) {
   const usageStatus = enumValue(merged.usageStatus ?? 'open', ['open', 'requestable', 'maintenance', 'occupied'], '使用状态');
   const cpuArchitecture = merged.cpuArchitecture == null || merged.cpuArchitecture === '' ? null
     : enumValue(merged.cpuArchitecture, ['X86', 'Hygon', 'Kunpeng'], 'CPU 架构');
+  const platform = merged.platform == null || merged.platform === '' ? null
+    : enumValue(merged.platform, ['hci', 'virtualization'], '平台');
   return {
     name: requiredName(merged.name, '环境名称'),
     purpose: string(merged.purpose, '用途', 1000),
@@ -62,6 +64,7 @@ function environmentInput(input, existing = {}) {
     externalStatus: enumValue(merged.externalStatus ?? 'internal', ['public', 'internal'], '对外展示状态'),
     usageStatus,
     cpuArchitecture,
+    platform,
     releaseAt: usageStatus === 'occupied' ? dateOrNull(merged.releaseAt) : null,
     note: string(merged.note, '备注', 10000),
     accounts: accounts(merged.accounts ?? []),
@@ -81,7 +84,7 @@ function demoInput(input, existing = {}) {
 function iso(value) { return value == null ? null : (value instanceof Date ? value : new Date(value)).toISOString(); }
 function environment(row) {
   return { id: row.id, name: row.name, purpose: row.purpose, url: row.url, externalStatus: row.external_status,
-    usageStatus: row.usage_status, cpuArchitecture: row.cpu_architecture ?? null,
+    usageStatus: row.usage_status, cpuArchitecture: row.cpu_architecture ?? null, platform: row.platform ?? null,
     releaseAt: iso(row.release_at), note: row.note, accounts: row.accounts, updatedAt: iso(row.updated_at) };
 }
 function folder(row) { return { id: row.id, name: row.name, createdAt: iso(row.created_at) }; }
@@ -134,17 +137,17 @@ export function createApp({ pool, dataDir = process.env.DATA_DIR ?? path.resolve
   }));
   app.post('/api/environments', asyncRoute(async (req, res) => {
     const value = environmentInput(req.body ?? {});
-    const result = await pool.query(`INSERT INTO environments (id,name,purpose,url,external_status,usage_status,release_at,note,accounts,cpu_architecture)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10) RETURNING *`,
-    [randomUUID(), value.name, value.purpose, value.url, value.externalStatus, value.usageStatus, value.releaseAt, value.note, JSON.stringify(value.accounts), value.cpuArchitecture]);
+    const result = await pool.query(`INSERT INTO environments (id,name,purpose,url,external_status,usage_status,release_at,note,accounts,cpu_architecture,platform)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11) RETURNING *`,
+    [randomUUID(), value.name, value.purpose, value.url, value.externalStatus, value.usageStatus, value.releaseAt, value.note, JSON.stringify(value.accounts), value.cpuArchitecture, value.platform]);
     res.status(201).json(environment(result.rows[0]));
   }));
   app.patch('/api/environments/:id', asyncRoute(async (req, res) => {
     const current = environment(one(await pool.query('SELECT * FROM environments WHERE id=$1', [req.params.id]), '环境不存在'));
     const value = environmentInput(req.body ?? {}, current);
     const result = await pool.query(`UPDATE environments SET name=$2,purpose=$3,url=$4,external_status=$5,usage_status=$6,
-      release_at=$7,note=$8,accounts=$9::jsonb,cpu_architecture=$10,updated_at=now() WHERE id=$1 RETURNING *`,
-    [req.params.id, value.name, value.purpose, value.url, value.externalStatus, value.usageStatus, value.releaseAt, value.note, JSON.stringify(value.accounts), value.cpuArchitecture]);
+      release_at=$7,note=$8,accounts=$9::jsonb,cpu_architecture=$10,platform=$11,updated_at=now() WHERE id=$1 RETURNING *`,
+    [req.params.id, value.name, value.purpose, value.url, value.externalStatus, value.usageStatus, value.releaseAt, value.note, JSON.stringify(value.accounts), value.cpuArchitecture, value.platform]);
     res.json(environment(one(result, '环境不存在')));
   }));
   app.delete('/api/environments/:id', asyncRoute(async (req, res) => {

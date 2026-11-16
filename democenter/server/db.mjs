@@ -17,6 +17,8 @@ export async function initializeDatabase(pool) {
         CHECK (usage_status IN ('open', 'requestable', 'maintenance', 'occupied')),
       cpu_architecture text CONSTRAINT environments_cpu_architecture_check
         CHECK (cpu_architecture IN ('X86', 'Hygon', 'Kunpeng')),
+      platform text CONSTRAINT environments_platform_check
+        CHECK (platform IN ('hci', 'virtualization')),
       release_at timestamptz,
       note text NOT NULL DEFAULT '',
       accounts jsonb NOT NULL DEFAULT '[]'::jsonb,
@@ -48,6 +50,9 @@ export async function initializeDatabase(pool) {
     ALTER TABLE environments ADD COLUMN IF NOT EXISTS cpu_architecture text
       CONSTRAINT environments_cpu_architecture_check
       CHECK (cpu_architecture IN ('X86', 'Hygon', 'Kunpeng'));
+    ALTER TABLE environments ADD COLUMN IF NOT EXISTS platform text
+      CONSTRAINT environments_platform_check
+      CHECK (platform IN ('hci', 'virtualization'));
     DO $$
     BEGIN
       IF NOT EXISTS (
