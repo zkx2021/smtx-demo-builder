@@ -4,6 +4,7 @@ import type { FormEvent, ReactNode } from 'react';
 import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
 import { request, json } from './api';
+import { copyText } from './clipboard';
 import type { Account, DemoFolder, DemoInput, DemoRecord, Environment, EnvironmentInput, Inspection, Playback, UsageStatus } from './api';
 import { Player } from './player';
 import { ResizableTable } from './resizable-table';
@@ -71,6 +72,22 @@ function Status({ status, kind }: { status: string; kind: 'usage' | 'asset' }) {
   return <span className={`status ${tone}`}><i />{label}</span>;
 }
 
+function CopyButton({ text, label, onError }: { text: string; label: string; onError: (message: string) => void }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => setCopied(false), [text]);
+  const copy = async () => {
+    try {
+      await copyText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+      onError(`无法复制${label}，请手动复制。`);
+    }
+  };
+  return <button type="button" title={copied ? '已复制' : `复制${label}`} aria-label={`复制${label}`} onClick={copy}><Icon name={copied ? 'check' : 'copy'} size={17} /></button>;
+}
+
 function EnvironmentForm({ initial, onCancel, onSave, busy }: { initial: EnvironmentInput; onCancel: () => void; onSave: (input: EnvironmentInput) => void; busy: boolean }) {
   const [form, setForm] = useState(initial);
   useEffect(() => setForm(initial), [initial]);
@@ -96,11 +113,9 @@ function EnvironmentForm({ initial, onCancel, onSave, busy }: { initial: Environ
   </form>;
 }
 
-function Credential({ account }: { account: Account }) {
+function Credential({ account, onCopyError }: { account: Account; onCopyError: (message: string) => void }) {
   const [visible, setVisible] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const copy = async () => { try { await navigator.clipboard.writeText(account.password); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { setCopied(false); } };
-  return <div className="credential"><span>{account.label || '账号'}</span><strong>{account.username || '—'}</strong><div className="secret"><code>{visible ? account.password : '••••••••'}</code><button title={visible ? '隐藏密码' : '显示密码'} aria-label={visible ? '隐藏密码' : '显示密码'} onClick={() => setVisible(!visible)}><Icon name="eye" size={17} /></button><button title={copied ? '已复制' : '复制密码'} aria-label="复制密码" onClick={copy}><Icon name={copied ? 'check' : 'copy'} size={17} /></button></div></div>;
+  return <div className="credential"><span>{account.label || '账号'}</span><strong>{account.username || '—'}</strong><div className="secret"><code>{visible ? account.password : '••••••••'}</code><button title={visible ? '隐藏密码' : '显示密码'} aria-label={visible ? '隐藏密码' : '显示密码'} onClick={() => setVisible(!visible)}><Icon name="eye" size={17} /></button><CopyButton text={account.password} label="密码" onError={onCopyError} /></div></div>;
 }
 
 function Environments() {
@@ -127,7 +142,7 @@ function Environments() {
   return <main className="page-shell"><h1 className="page-title">演示环境</h1><Banner message={error} clear={() => setError('')} />
     <div className="toolbar"><button className="primary-button" onClick={() => setMode('create')}><Icon name="plus" /> 新建环境</button><div className="search-field"><Icon name="search" /><input aria-label="搜索环境" placeholder="搜索环境名称或入口（如：SMTX、CloudTower）" value={query} onChange={e => setQuery(e.target.value)} /></div><select aria-label="按使用状态筛选" value={usage} onChange={e => setUsage(e.target.value)}><option value="all">使用状态：全部</option><option value="open">公开</option><option value="requestable">可申请</option><option value="maintenance">维护中</option><option value="occupied">占用中</option></select></div>
     <div className="environment-layout"><section className="panel table-panel"><div className="table-scroll"><ResizableTable columns={environmentColumns} storageKey="democenter.environment.columns.v5"><tbody>{filtered.map(item => <tr key={item.id} className={selectedId === item.id && mode !== 'create' ? 'selected' : ''} onClick={() => { setSelectedId(item.id); setMode('detail'); }}><td><strong>{item.name}</strong><small>{item.url || item.purpose || '尚未填写入口'}</small></td><td>{platformLabel(item.platform)}</td><td>{item.cpuArchitecture || '未指定'}</td><td>{item.externalStatus === 'public' ? '可对外展示' : '仅内部使用'}</td><td><Status status={item.usageStatus} kind="usage" /></td><td>{dateTime(item.releaseAt)}</td><td>{dateTime(item.updatedAt)}</td></tr>)}</tbody></ResizableTable></div>{!loading && filtered.length === 0 && <Empty title={items.length ? '没有匹配的环境' : '还没有演示环境'} detail={items.length ? '试试其他关键词或状态。' : '添加第一个环境，集中维护入口、状态和访问凭据。'} action={!items.length && <button className="secondary-button" onClick={() => setMode('create')}>新建环境</button>} />}{loading && <p className="loading">正在加载环境…</p>}</section>
-      <aside className="panel detail-panel">{mode === 'create' ? <><div className="detail-heading"><h2>新建环境</h2></div><EnvironmentForm initial={blankEnvironment()} onCancel={() => setMode('detail')} onSave={save} busy={busy} /></> : selected ? mode === 'edit' ? <><div className="detail-heading"><h2>编辑环境</h2></div><EnvironmentForm initial={environmentInput(selected)} onCancel={() => setMode('detail')} onSave={save} busy={busy} /></> : <><div className="detail-heading"><h2>{selected.name}</h2><Status status={selected.usageStatus} kind="usage" /></div>{selected.purpose && <p className="detail-description">{selected.purpose}</p>}<div className="detail-toolbar"><button className="outline-blue" onClick={() => setMode('edit')}><Icon name="edit" size={16} /> 编辑</button></div><dl className="data-list"><div><dt>平台</dt><dd>{platformLabel(selected.platform)}</dd></div><div><dt>CPU 架构</dt><dd>{selected.cpuArchitecture || '未指定'}</dd></div><div><dt>对外展示</dt><dd>{selected.externalStatus === 'public' ? '可对外展示' : '仅内部使用'}</dd></div><div><dt>使用状态</dt><dd><Status status={selected.usageStatus} kind="usage" /></dd></div><div><dt>预计释放</dt><dd>{dateTime(selected.releaseAt)}</dd></div><div><dt>最近更新</dt><dd>{dateTime(selected.updatedAt)}</dd></div></dl><div className="detail-section"><h3>访问入口</h3>{selected.url ? <div className="url-box"><Icon name="link" size={17} /><a href={selected.url} target="_blank" rel="noopener noreferrer">{selected.url}</a><button aria-label="复制入口" onClick={() => navigator.clipboard.writeText(selected.url)}><Icon name="copy" size={17} /></button></div> : <p className="quiet">尚未填写入口</p>}</div><div className="detail-section"><h3>访问凭据</h3>{selected.accounts.length ? selected.accounts.map((account, index) => <Credential account={account} key={index} />) : <p className="quiet">尚未添加访问凭据</p>}</div>{selected.note && <div className="detail-section"><h3>备注</h3><p className="detail-description">{selected.note}</p></div>}<button className="danger-link" disabled={busy} onClick={remove}><Icon name="trash" size={17} /> 删除环境</button></> : <Empty title="选择一个环境" detail="从列表中选择环境查看详情，或新建环境。" />}</aside></div>
+      <aside className="panel detail-panel">{mode === 'create' ? <><div className="detail-heading"><h2>新建环境</h2></div><EnvironmentForm initial={blankEnvironment()} onCancel={() => setMode('detail')} onSave={save} busy={busy} /></> : selected ? mode === 'edit' ? <><div className="detail-heading"><h2>编辑环境</h2></div><EnvironmentForm initial={environmentInput(selected)} onCancel={() => setMode('detail')} onSave={save} busy={busy} /></> : <><div className="detail-heading"><h2>{selected.name}</h2><Status status={selected.usageStatus} kind="usage" /></div>{selected.purpose && <p className="detail-description">{selected.purpose}</p>}<div className="detail-toolbar"><button className="outline-blue" onClick={() => setMode('edit')}><Icon name="edit" size={16} /> 编辑</button></div><dl className="data-list"><div><dt>平台</dt><dd>{platformLabel(selected.platform)}</dd></div><div><dt>CPU 架构</dt><dd>{selected.cpuArchitecture || '未指定'}</dd></div><div><dt>对外展示</dt><dd>{selected.externalStatus === 'public' ? '可对外展示' : '仅内部使用'}</dd></div><div><dt>使用状态</dt><dd><Status status={selected.usageStatus} kind="usage" /></dd></div><div><dt>预计释放</dt><dd>{dateTime(selected.releaseAt)}</dd></div><div><dt>最近更新</dt><dd>{dateTime(selected.updatedAt)}</dd></div></dl><div className="detail-section"><h3>访问入口</h3>{selected.url ? <div className="url-box"><Icon name="link" size={17} /><a href={selected.url} target="_blank" rel="noopener noreferrer">{selected.url}</a><CopyButton text={selected.url} label="入口" onError={setError} /></div> : <p className="quiet">尚未填写入口</p>}</div><div className="detail-section"><h3>访问凭据</h3>{selected.accounts.length ? selected.accounts.map((account, index) => <Credential account={account} onCopyError={setError} key={index} />) : <p className="quiet">尚未添加访问凭据</p>}</div>{selected.note && <div className="detail-section"><h3>备注</h3><p className="detail-description">{selected.note}</p></div>}<button className="danger-link" disabled={busy} onClick={remove}><Icon name="trash" size={17} /> 删除环境</button></> : <Empty title="选择一个环境" detail="从列表中选择环境查看详情，或新建环境。" />}</aside></div>
   </main>;
 }
 
